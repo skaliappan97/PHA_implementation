@@ -225,14 +225,23 @@ Provide a comprehensive answer that addresses the question, incorporates the use
         health_records = self.user_health_context.get('health_records', {})
         wearable_data = self.user_health_context.get('wearable_data', {})
 
-        user_prompt = render_prompt(
-            DE_SYNTHESIS_PROMPT,
-            user_query=user_query,
-            health_records=json.dumps(health_records, indent=2),
-            wearable_data=json.dumps(wearable_data, indent=2),
-            lab_results=json.dumps(lab_results, indent=2) if lab_results else "No recent lab results",
-            ds_analysis=ds_analysis or "No statistical analysis available"
-        )
+        user_prompt = f"""Synthesize insights from multiple health data sources to answer this query.
+
+User Query: {user_query}
+
+Health Records:
+{json.dumps(health_records, indent=2)}
+
+Wearable Data Summary:
+{json.dumps(wearable_data, indent=2) if wearable_data else "No wearable data available"}
+
+Lab Results:
+{json.dumps(lab_results, indent=2) if lab_results else "No recent lab results"}
+
+Data Science Analysis:
+{ds_analysis or "No statistical analysis available"}
+
+Provide a comprehensive medical interpretation that integrates all available data sources."""
 
         response = call_gemini(
             system_prompt=self.system_prompt,
@@ -370,12 +379,18 @@ Use open-ended questions to explore deeper motivations, reflect back what you're
         """
         conversation_summary = self._format_conversation_history()
 
-        user_prompt = render_prompt(
-            HC_FEEDBACK_PROCESSING_PROMPT,
-            previous_recommendation=previous_recommendation,
-            user_feedback=user_feedback,
-            conversation_history=conversation_summary
-        )
+        user_prompt = f"""Process the user's feedback on your previous recommendation and adjust your coaching approach.
+
+Conversation History:
+{conversation_summary}
+
+Previous Recommendation:
+{previous_recommendation}
+
+User's Feedback:
+{user_feedback}
+
+Acknowledge their feedback, adjust your approach based on their response, and provide revised guidance that better fits their needs and preferences."""
 
         response = call_gemini(
             system_prompt=self.system_prompt,

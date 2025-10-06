@@ -12,38 +12,35 @@ from mock_data import get_mock_user_data, get_sample_queries, print_data_summary
 import json
 
 
-def initialize_system():
+def initialize_system(verbose=False):
     """
     Initialize the PHA multi-agent system with mock data.
 
+    Args:
+        verbose: If True, show detailed initialization steps
+
     Returns:
-        Initialized Orchestrator instance
+        Initialized Orchestrator instance and user data
     """
-    print("\n" + "=" * 80)
-    print("PERSONAL HEALTH AGENT (PHA) - Multi-Agent System")
-    print("=" * 80)
-    print("\nInitializing system...")
+    if verbose:
+        print("\nInitializing Personal Health Agent...")
 
     # Get mock user data
     user_data = get_mock_user_data()
 
     # Initialize agents
-    print("\n Creating Data Science Agent...")
     ds_agent = DataScienceAgent(
         personal_data=user_data['personal_data']
     )
 
-    print(" Creating Domain Expert Agent...")
     de_agent = DomainExpertAgent(
         user_health_context=user_data['health_context']
     )
 
-    print(" Creating Health Coach Agent...")
     hc_agent = HealthCoachAgent(
         user_context=user_data['user_profile']
     )
 
-    print(" Creating Orchestrator...")
     orchestrator = Orchestrator(
         ds_agent=ds_agent,
         de_agent=de_agent,
@@ -59,71 +56,59 @@ def initialize_system():
         }
     )
 
-    print("\n System initialized successfully!\n")
+    if verbose:
+        print("✓ System initialized\n")
 
     return orchestrator, user_data
 
 
-def run_single_query_demo(orchestrator: Orchestrator, query: str):
+def run_flow_mode(orchestrator: Orchestrator, query: str):
     """
-    Run a single query through the system and display results.
+    Run a query in flow mode - shows detailed agent orchestration and attribution.
 
     Args:
         orchestrator: Initialized Orchestrator instance
         query: User query to process
     """
-    print("\n" + "=" * 80)
-    print(f"USER QUERY: {query}")
-    print("=" * 80)
-
-    print("\n= Processing query through multi-agent system...")
+    print("\n" + "=" * 60)
+    print(f"QUERY: {query}")
+    print("=" * 60)
 
     # Process the query
     result = orchestrator.process_query(query)
-
-    # Display orchestration plan
-    print("\n= ORCHESTRATION PLAN")
-    print("-" * 80)
     plan = result['orchestration_plan']
-    print(f"Intent: {plan.get('user_intent', 'N/A')}")
-    print(f"Main Agent: {plan.get('main_agent', 'N/A')}")
-    print(f"Supporting Agents: {', '.join(plan.get('supporting_agents', []))}")
 
-    # Display agent responses summary
-    print("\n> AGENT RESPONSES")
-    print("-" * 80)
-    for agent_name, response in result['agent_responses'].items():
-        print(f"\n{agent_name} Agent:")
-        if isinstance(response, dict):
-            if 'error' in response:
-                print(f"  L Error: {response['error']}")
-            else:
-                print(f"   Response generated ({len(str(response))} chars)")
-        else:
-            print(f"   Response: {response[:150]}..." if len(response) > 150 else f"   {response}")
+    # Show flow visualization
+    print("\n┌─ ORCHESTRATION FLOW")
+    print("│")
+    print(f"│  Intent: {plan.get('user_intent', 'N/A')}")
+    print(f"│  Main Agent: {plan.get('main_agent', 'N/A')}")
+    print(f"│  Supporting: {', '.join(plan.get('supporting_agents', []))}")
+    print("│")
 
-    # Display reflection result
-    print("\n= QUALITY REFLECTION")
-    print("-" * 80)
+    # Show agent activity
+    print("├─ AGENT ACTIVITY")
+    for agent_name, task in plan.get('tasks', {}).items():
+        if task:
+            status = "✓" if agent_name in result['agent_responses'] else "○"
+            print(f"│  {status} {agent_name}: {task[:60]}...")
+    print("│")
+
+    # Show quality check
     reflection = result['reflection']
     approved = reflection.get('approved', True)
-    print(f"Approved: {' Yes' if approved else 'L No'}")
-    if not approved:
-        print(f"Issues: {reflection.get('issues', [])}")
+    print(f"├─ QUALITY CHECK: {'✓ Approved' if approved else '✗ Issues found'}")
+    print("│")
 
-    # Display final response
-    print("\n= FINAL RESPONSE TO USER")
-    print("=" * 80)
+    # Show final response with attribution
+    print("└─ FINAL RESPONSE")
+    print("\n" + "-" * 60)
     print(result['response'])
-    print("=" * 80)
+    print("-" * 60)
 
-    # Display updated memory
-    print("\n> UPDATED MEMORY")
-    print("-" * 80)
-    memory = result['updated_memory']
-    print(f"Goals: {len(memory.get('goals', []))} items")
-    print(f"Conditions: {len(memory.get('conditions', []))} items")
-    print(f"Action Items: {len(memory.get('action_items', []))} items")
+    # Attribution summary
+    print(f"\n[Main: {plan.get('main_agent', 'N/A')} | " +
+          f"Supporting: {', '.join(plan.get('supporting_agents', []))}]")
 
     return result
 
@@ -135,14 +120,10 @@ def run_interactive_mode(orchestrator: Orchestrator):
     Args:
         orchestrator: Initialized Orchestrator instance
     """
-    print("\n" + "=" * 80)
-    print("=  INTERACTIVE MODE")
-    print("=" * 80)
-    print("\nYou can now have a conversation with your Personal Health Agent.")
-    print("Type 'quit' or 'exit' to end the conversation.")
-    print("Type 'memory' to see the current conversation memory.")
-    print("Type 'summary' to see a conversation summary.")
-    print("\n" + "-" * 80 + "\n")
+    print("\n" + "─" * 60)
+    print("Personal Health Agent - Interactive Mode")
+    print("─" * 60)
+    print("\nCommands: 'quit' to exit | 'memory' to view context | 'summary' for stats\n")
 
     while True:
         # Get user input
@@ -153,136 +134,113 @@ def run_interactive_mode(orchestrator: Orchestrator):
 
         # Check for special commands
         if user_input.lower() in ['quit', 'exit', 'q']:
-            print("\n=K Thank you for using the Personal Health Agent. Stay healthy!")
+            print("\nThank you for using PHA. Stay healthy!\n")
             break
 
         if user_input.lower() == 'memory':
-            print("\n> Current Memory:")
-            print(json.dumps(orchestrator.memory, indent=2))
-            print()
+            print("\n" + json.dumps(orchestrator.memory, indent=2) + "\n")
             continue
 
         if user_input.lower() == 'summary':
             summary = orchestrator.get_conversation_summary()
-            print(f"\n= Conversation Summary:")
-            print(f"Total turns: {summary['total_turns']}")
-            print(f"Goals tracked: {len(orchestrator.memory['goals'])}")
-            print(f"Action items: {len(orchestrator.memory['action_items'])}")
-            print()
+            print(f"\nTurns: {summary['total_turns']} | " +
+                  f"Goals: {len(orchestrator.memory['goals'])} | " +
+                  f"Actions: {len(orchestrator.memory['action_items'])}\n")
             continue
 
         # Process the query
-        print("\n= Processing...\n")
         try:
             result = orchestrator.process_query(user_input)
-            print(f"PHA: {result['response']}\n")
+            print(f"\nPHA: {result['response']}\n")
         except Exception as e:
-            print(f"\nL Error processing query: {e}\n")
+            print(f"\n✗ Error: {e}\n")
             print("Please try again or type 'quit' to exit.\n")
 
 
-def run_batch_demo(orchestrator: Orchestrator, sample_queries: list, num_queries: int = 3):
-    """
-    Run multiple sample queries in batch mode.
-
-    Args:
-        orchestrator: Initialized Orchestrator instance
-        sample_queries: List of sample queries
-        num_queries: Number of queries to run
-    """
-    print("\n" + "=" * 80)
-    print("< BATCH DEMO MODE")
-    print("=" * 80)
-    print(f"\nRunning {num_queries} sample queries...\n")
-
-    for i, query in enumerate(sample_queries[:num_queries], 1):
-        print(f"\n{'=' * 80}")
-        print(f"QUERY {i}/{num_queries}")
-        print(f"{'=' * 80}")
-
-        run_single_query_demo(orchestrator, query)
-
-        if i < num_queries:
-            input("\n  Press Enter to continue to next query...")
+def run_data_mode():
+    """Display mock data summary and exit."""
+    print("\n" + "─" * 60)
+    print("Personal Health Agent - Data Testing Mode")
+    print("─" * 60 + "\n")
+    print_data_summary()
 
 
 def main():
     """Main entry point for the PHA system."""
 
     # Parse command line arguments
-    mode = 'demo'  # Default mode
+    mode = 'interactive'  # Default mode
+    query = None
+
     if len(sys.argv) > 1:
         mode = sys.argv[1].lower()
+        # For flow mode, allow passing a query
+        if mode == 'flow' and len(sys.argv) > 2:
+            query = ' '.join(sys.argv[2:])
 
-    # Initialize the system
-    orchestrator, user_data = initialize_system()
-
-    # Show data summary
-    if mode in ['demo', 'data']:
-        print_data_summary()
-
+    # Handle data mode separately (no initialization needed)
     if mode == 'data':
-        # Just show data and exit
+        run_data_mode()
         return
 
-    # Get sample queries
-    sample_queries = get_sample_queries()
+    # Initialize system (verbose only for flow mode)
+    verbose = mode == 'flow'
+    if verbose:
+        print("\n✓ Initializing...")
+
+    try:
+        orchestrator, user_data = initialize_system(verbose=verbose)
+        if verbose:
+            print("✓ System ready")
+    except Exception as e:
+        print(f"\n✗ Initialization failed: {e}")
+        print("\nTroubleshooting:")
+        print("  1. Activate virtual environment: source .venv/bin/activate")
+        print("  2. Install dependencies: pip install -r requirements.txt")
+        print("  3. Set API key: export GOOGLE_API_KEY='your-key-here'")
+        return
 
     if mode == 'interactive' or mode == 'i':
-        # Run interactive mode
+        print(f"✓ Mode: Interactive")
         run_interactive_mode(orchestrator)
 
-    elif mode == 'batch':
-        # Run batch demo with all sample queries
-        run_batch_demo(orchestrator, sample_queries, num_queries=len(sample_queries))
-
-    elif mode == 'single':
-        # Run a single query
-        if len(sys.argv) > 2:
-            query = ' '.join(sys.argv[2:])
-        else:
+    elif mode == 'flow' or mode == 'f':
+        print(f"✓ Mode: Flow Visualization\n")
+        # Use provided query or default sample query
+        if not query:
+            sample_queries = get_sample_queries()
             query = sample_queries[0]
-        run_single_query_demo(orchestrator, query)
+        run_flow_mode(orchestrator, query)
 
-    else:  # demo mode (default)
-        # Run a demo with a few sample queries
-        run_batch_demo(orchestrator, sample_queries, num_queries=2)
-
-        # Offer to continue in interactive mode
-        print("\n" + "=" * 80)
-        choice = input("\nWould you like to continue in interactive mode? (y/n): ").strip().lower()
-        if choice == 'y':
-            run_interactive_mode(orchestrator)
+    else:
+        print(f"\n✗ Unknown mode: {mode}")
+        print("Valid modes: interactive (default), flow, data")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    print("\n")
-    print("TPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPW")
-    print("Q           PERSONAL HEALTH AGENT - Multi-Agent System Demo                  Q")
-    print("Q                                                                             Q")
-    print("Q  Based on: 'The Anatomy of a Personal Health Agent' (arXiv 2508.20148)    Q")
-    print("ZPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP]")
-
-    print("\nUsage:")
-    print("  python main.py [mode]")
-    print("\nModes:")
-    print("  demo        - Run 2 sample queries and optionally continue interactively (default)")
-    print("  interactive - Start interactive conversation mode")
-    print("  batch       - Run all sample queries in sequence")
-    print("  single      - Run a single query (provide query as additional arguments)")
-    print("  data        - Show mock data summary and exit")
-    print("\nExamples:")
-    print("  python main.py")
-    print("  python main.py interactive")
-    print("  python main.py single How has my sleep been?")
-    print()
+    # Show usage only if no arguments or invalid mode
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] not in ['interactive', 'i', 'flow', 'f', 'data']):
+        print("\nPersonal Health Agent - Multi-Agent System")
+        print("Based on arXiv 2508.20148\n")
+        print("Usage: python main.py [mode] [options]")
+        print("\nModes:")
+        print("  interactive  - Conversational mode (default)")
+        print("  flow         - Show agent orchestration flow")
+        print("  data         - Display mock data summary")
+        print("\nExamples:")
+        print("  python main.py")
+        print("  python main.py interactive")
+        print("  python main.py flow \"How has my sleep been?\"")
+        print("  python main.py data")
+        print()
 
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n=K Interrupted. Goodbye!")
+        print("\n\nInterrupted. Goodbye!\n")
     except Exception as e:
-        print(f"\nL Fatal error: {e}")
+        print(f"\n✗ Fatal error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

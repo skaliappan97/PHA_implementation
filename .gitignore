@@ -35,3 +35,7 @@ secrets/
 
 # Test outputs
 test_output/
+
+# Markdown files (except README.md)
+*.md
+!README.md
