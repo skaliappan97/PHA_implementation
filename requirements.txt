@@ -1,0 +1,8 @@
+# Google Gemini API for LLM integration
+google-generativeai>=0.3.0
+
+# Jinja2 for prompt templating
+jinja2>=3.1.0
+
+# Additional utilities
+python-dotenv>=1.0.0

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(cat:*)",
+      "Bash(export GOOGLE_API_KEY=\"AIzaSyBPsyF8V5Bh09TPc234Ild0iu41lq9sdZ8\")",
+      "Bash(source:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
