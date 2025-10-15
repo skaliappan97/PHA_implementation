@@ -6,6 +6,7 @@ including initialization, query processing, and interactive conversation.
 """
 
 import sys
+from typing import Dict, Any
 from agents import DataScienceAgent, DomainExpertAgent, HealthCoachAgent
 from orchestrator import Orchestrator
 from mock_data import get_mock_user_data, get_sample_queries, print_data_summary
@@ -165,6 +166,64 @@ def run_data_mode():
     print_data_summary()
 
 
+def run_single_mode(unified_agent):
+    """
+    Run interactive conversation loop with single unified agent.
+
+    Args:
+        unified_agent: Initialized UnifiedAgent instance
+    """
+    print("\n" + "─" * 60)
+    print("Personal Health Agent - Single Agent Mode (Baseline)")
+    print("─" * 60)
+    print("\nCommands: 'quit' to exit | 'memory' to view context | 'summary' for stats\n")
+
+    while True:
+        # Get user input
+        user_input = input("You: ").strip()
+
+        if not user_input:
+            continue
+
+        # Check for special commands
+        if user_input.lower() in ['quit', 'exit', 'q']:
+            print("\nThank you for using PHA. Stay healthy!\n")
+            break
+
+        if user_input.lower() == 'memory':
+            print("\n" + json.dumps(unified_agent.memory, indent=2) + "\n")
+            continue
+
+        if user_input.lower() == 'summary':
+            summary = unified_agent.get_conversation_summary()
+            print(f"\nTurns: {summary['total_turns']} | " +
+                  f"Goals: {len(unified_agent.memory['goals'])} | " +
+                  f"Actions: {len(unified_agent.memory['action_items'])}\n")
+            continue
+
+        # Process the query
+        try:
+            result = unified_agent.process_query(user_input)
+            print(f"\nPHA: {result['response']}\n")
+        except Exception as e:
+            print(f"\n✗ Error: {e}\n")
+            print("Please try again or type 'quit' to exit.\n")
+
+
+def run_comparison_mode(query: str, user_data: Dict[str, Any]):
+    """
+    Run a query through both multi-agent and single-agent systems for comparison.
+
+    Args:
+        query: User query to test
+        user_data: Complete user data
+    """
+    from comparison import AgentComparison
+
+    comparison = AgentComparison(user_data)
+    comparison.run_single_query_comparison(query)
+
+
 def main():
     """Main entry point for the PHA system."""
 
@@ -201,7 +260,7 @@ def main():
         return
 
     if mode == 'interactive' or mode == 'i':
-        print(f"✓ Mode: Interactive")
+        print(f"✓ Mode: Interactive (Multi-Agent)")
         run_interactive_mode(orchestrator)
 
     elif mode == 'flow' or mode == 'f':
@@ -212,26 +271,47 @@ def main():
             query = sample_queries[0]
         run_flow_mode(orchestrator, query)
 
+    elif mode == 'single' or mode == 's':
+        print(f"✓ Mode: Single Agent (Baseline)")
+        from unified_agent import UnifiedAgent
+        unified_agent = UnifiedAgent(user_data)
+        run_single_mode(unified_agent)
+
+    elif mode == 'compare' or mode == 'c':
+        print(f"✓ Mode: Comparison")
+        # Get query from command line or use sample
+        if len(sys.argv) > 2:
+            query = ' '.join(sys.argv[2:])
+        else:
+            sample_queries = get_sample_queries()
+            query = sample_queries[0]
+        run_comparison_mode(query, user_data)
+
     else:
         print(f"\n✗ Unknown mode: {mode}")
-        print("Valid modes: interactive (default), flow, data")
+        print("Valid modes: interactive (default), flow, data, single, compare")
         sys.exit(1)
 
 
 if __name__ == "__main__":
     # Show usage only if no arguments or invalid mode
-    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] not in ['interactive', 'i', 'flow', 'f', 'data']):
+    valid_modes = ['interactive', 'i', 'flow', 'f', 'data', 'single', 's', 'compare', 'c']
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] not in valid_modes):
         print("\nPersonal Health Agent - Multi-Agent System")
         print("Based on arXiv 2508.20148\n")
         print("Usage: python main.py [mode] [options]")
         print("\nModes:")
-        print("  interactive  - Conversational mode (default)")
+        print("  interactive  - Multi-agent conversational mode (default)")
         print("  flow         - Show agent orchestration flow")
+        print("  single       - Single unified agent mode (baseline comparison)")
+        print("  compare      - Compare multi-agent vs single-agent on a query")
         print("  data         - Display mock data summary")
         print("\nExamples:")
         print("  python main.py")
         print("  python main.py interactive")
         print("  python main.py flow \"How has my sleep been?\"")
+        print("  python main.py single")
+        print("  python main.py compare \"Analyze my heart rate trends\"")
         print("  python main.py data")
         print()
 
